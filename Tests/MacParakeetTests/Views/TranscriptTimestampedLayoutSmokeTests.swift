@@ -337,6 +337,34 @@ final class TranscriptTimestampedLayoutSmokeTests: XCTestCase {
         assertLayoutSettles(view)
     }
 
+    /// Saved meetings render through the effective (editable) attribution, so
+    /// every row also carries hover actions. At the non-lazy limit all rows are
+    /// materialized on open; their hidden hover controls must not be.
+    func testEffectiveLimitSizedTranscriptDefersRowHoverActions() {
+        let segments = segments(count: TranscriptBodyLayout.nonLazyRowLimit, speakers: ["S1"])
+        let attribution = attribution(for: segments)
+        XCTAssertFalse(
+            TranscriptBodyLayout.usesLazyStack(
+                rowCount: attribution.editableSegments.count,
+                environment: [:]
+            )
+        )
+        let view = host(hasSpeakers: true, cards: [], segments: [], attribution: attribution)
+
+        assertLayoutSettles(view)
+        // Hover actions (including the AppKit pop-up behind each row `Menu`)
+        // are only built once a row is hovered, so the AppKit control count
+        // must not scale with rows. Before the fix it was one per row (400).
+        XCTAssertLessThan(
+            appKitButtonCount(in: view), 10,
+            "hidden row hover actions were materialized for every row on open"
+        )
+    }
+
+    private func appKitButtonCount(in view: NSView) -> Int {
+        view.subviews.reduce(view is NSButton ? 1 : 0) { $0 + appKitButtonCount(in: $1) }
+    }
+
     /// Issue #845 scale: one speaker for ~964 segments becomes 41 bounded
     /// cards in the lazy branch; the lazy stack must only realize what fits.
     func testReporterScaleSingleSpeakerUsesLazyBranchAndSettles() {

@@ -872,6 +872,11 @@ private struct TranscriptSegmentRow: View {
     var onMergeNext: () -> Void = {}
 
     @State private var isHovering = false
+    /// Built on first hover, then kept. Non-lazy transcripts realize every row
+    /// on open, and each capsule's `Menu` is an AppKit pop-up button, so
+    /// building them all up front stalled the main thread. Keeping them means
+    /// an open menu is never torn down when the pointer leaves the row.
+    @State private var hoverActionsRealized = false
 
     var body: some View {
         HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
@@ -919,12 +924,15 @@ private struct TranscriptSegmentRow: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            hoverActions
-                .padding(showRowBackground ? DesignSystem.Spacing.sm : 0)
-                .opacity(isHovering ? 1 : 0)
-                .allowsHitTesting(isHovering)
+            if hoverActionsRealized {
+                hoverActions
+                    .padding(showRowBackground ? DesignSystem.Spacing.sm : 0)
+                    .opacity(isHovering ? 1 : 0)
+                    .allowsHitTesting(isHovering)
+            }
         }
         .onHover { hovering in
+            if hovering { hoverActionsRealized = true }
             withAnimation(DesignSystem.Animation.hoverTransition) {
                 isHovering = hovering
             }
